@@ -19,16 +19,22 @@ $o_result = $o_mysqli->query("
   select * from
     mtf_parse
   where
-    Model like 'BLR-1G' 
+    TechBase like '%Inner Sphere%' and
+    BV <> 0 and
+    Chassis like 'Warhammer' and
+    Model like 'WHM-6Rb'
 ");
 
 //TR1
+//BLR-1G
 
 WeaponData::readFile();
 //var_dump(WeaponData::$a_weapon);
+$o_mech = new Analyze();
 while($a_record = $o_result->fetch_assoc())
 {
-  Analyze::Mech($a_record);
+//  Analyze::Mech($a_record);
+  $o_mech->setMech($a_record);
 }
 
 ?>

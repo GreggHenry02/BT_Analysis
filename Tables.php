@@ -77,13 +77,20 @@ class Tables
     return $a_list;
   }
 
-  public static function getWeaponData(array $a_weapon): array
+  public static function getWeaponData(string $s_weapon): array
   {
+    $a_weapon = self::getWeapons($s_weapon);
     $a_data = [];
     foreach($a_weapon as $s_weapon)
     {
-//      $a_data[] = self::findWeaponData($s_weapon);
-      $a_data[] = WeaponData::getWeapon($s_weapon);
+      $x_result = WeaponData::getWeapon($s_weapon);
+      if(!$x_result)
+      {
+//        var_dump(WeaponData::$a_weapon);
+        echo $s_weapon.PHP_EOL;
+      }
+
+      $a_data[] = $x_result;
     }
     return $a_data;
   }

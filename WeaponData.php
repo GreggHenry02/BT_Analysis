@@ -340,19 +340,20 @@ class WeaponData
         if(count($a_element) >= count($a_header) && !empty($a_element[$a_header['Name']]))
         {
           $a_weapon = [
-            'i_accuracy' => $a_element[$a_header['Accuracy']],
-            'i_ammo_per_ton' => $a_element[$a_header['AmmoPerTon']],
-            'i_criticals' => $a_element[$a_header['Criticals']],
-            'i_damage' => $a_element[$a_header['Damage']],
-            'i_heat' => $a_element[$a_header['Heat']],
-            'i_medium' => $a_element[$a_header['Medium']],
-            'i_min_range' => $a_element[$a_header['Min.Range']],
-            'i_long' => $a_element[$a_header['Long']],
-            'i_short' => $a_element[$a_header['Short']],
+            'i_accuracy' => intval($a_element[$a_header['Accuracy']]),
+            'i_ammo_per_ton' => intval($a_element[$a_header['AmmoPerTon']]),
+            'i_critical' => intval($a_element[$a_header['Criticals']]),
+            'i_damage' => intval($a_element[$a_header['Damage']]),
+            'i_heat' => intval($a_element[$a_header['Heat']]),
+            'i_medium' => intval($a_element[$a_header['Medium']]),
+            'i_min_range' => intval($a_element[$a_header['Min.Range']]),
+            'i_long' => intval($a_element[$a_header['Long']]),
+            'i_short' => intval($a_element[$a_header['Short']]),
             'id_weapon' => $id_weapon++,
             's_ammo_alias' => $a_element[$a_header['AmmoAlias']],
             's_display_name' => trim($a_element[$a_header['Display Name']]),
             's_name' => trim($a_element[$a_header['Name']]),
+            's_subtype' => $a_element[$a_header['SubType']],
             'sid_type' => $a_element[$a_header['Type']],
           ];
 
@@ -375,6 +376,27 @@ class WeaponData
       if(!empty($a_weapon['s_ammo_alias']))
         self::$a_ammo_alias[trim($a_weapon['s_ammo_alias'])] = trim($s_name);
     }
+  }
+
+  /**
+   * Determines if a weapon benefits from a targeting computer.
+   *
+   * @param int $sid_type
+   * @return bool
+   */
+  public static function usesTargetingComputer(int $sid_type): bool
+  {
+    if(in_array($sid_type,[
+      'Energy',
+      'VSP',
+      'Plasma',
+      'Ballistic',
+      'Ultra',
+      'LBX',
+      'Gauss',
+    ]))
+      return true;
+    return false;
   }
 }
 
