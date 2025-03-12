@@ -53,10 +53,19 @@ class WeaponData
 
   /**
    * List of all available weapon types.
+   * The key is the weapon's name.
    *
    * @var array|null
    */
   public static ?array $a_weapon = null;
+
+  /**
+   * List of all available weapon types.
+   * The key is the weapon's display name.
+   *
+   * @var array|null
+   */
+  public static ?array $a_weapon_display_name = null;
 
   /**
    * Checks if the weapon uses ammunition.
@@ -357,7 +366,8 @@ class WeaponData
             'sid_type' => $a_element[$a_header['Type']],
           ];
 
-          self::$a_weapon[$a_element[$a_header['Name']]] = $a_weapon;
+          self::$a_weapon[$a_weapon['s_name']] = $a_weapon;
+          self::$a_weapon_display_name[$a_weapon['s_display_name']] = $a_weapon;
         }
       }
     }
@@ -381,19 +391,18 @@ class WeaponData
   /**
    * Determines if a weapon benefits from a targeting computer.
    *
-   * @param int $sid_type
+   * @param string $sid_type
+   * @param string $s_subtype
    * @return bool
    */
-  public static function usesTargetingComputer(int $sid_type): bool
+  public static function usesTargetingComputer(string $sid_type, string $s_subtype): bool
   {
     if(in_array($sid_type,[
       'Energy',
-      'VSP',
-      'Plasma',
       'Ballistic',
-      'Ultra',
-      'LBX',
-      'Gauss',
+      ]) && !in_array($s_subtype,[
+      'Flamer',
+      'MG'
     ]))
       return true;
     return false;

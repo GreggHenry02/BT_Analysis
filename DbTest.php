@@ -21,8 +21,7 @@ $o_result = $o_mysqli->query("
   where
     TechBase like '%Inner Sphere%' and
     BV <> 0 and
-    Chassis like 'Warhammer' and
-    Model like 'WHM-6Rb'
+    Mass = 20
 ");
 
 //TR1

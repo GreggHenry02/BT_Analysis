@@ -16,25 +16,38 @@ class Analyze
   {
     $i_defence = $this->a_mech['i_armour'] + $this->a_mech['i_struct'];
     $i_tmm = max($this->a_mech['i_run_tmm'],$this->a_mech['i_jump_tmm']);
+    $i_tmm += !empty($this->a_mech['has_stealth'])?1:0;
     $i_defence = intval(ceil($i_defence * (1+($i_tmm * .25))));
 
+    if(str_contains($this->a_mech['s_engine'],'xl'))
+      $i_defence = intval(ceil($i_defence * .75));
+    else if(str_contains($this->a_mech['s_engine'],'light'))
+      $i_defence = intval(ceil($i_defence * .90));
+
     $i_offence = 0;
+    $i_heat_max = 0;
+    if(!empty($this->a_mech['has_stealth']))
+      $i_heat_max += 10;
+
+    $has_tarcomp = !empty($this->a_mech['has_tarcomp']);
     foreach($this->a_mech['a_weapon_list'] as $a_weapon)
     {
-      if(gettype($a_weapon) !== 'array')
-      {
-//        var_dump($this->a_mech['a_weapon_list']);
-        exit();
-      }
-
       $s_name = $a_weapon['s_display_name'] ?? $a_weapon['s_name'];
       $i_range = $a_weapon['i_long'] - (intval($a_weapon['i_min_range']) * 0.75);
+      if($a_weapon['s_subtype'] == 'VSP')
+        $i_range = intval(ceil($i_range / 2));
+      $i_range += $this->a_mech['i_run'];
+
       $i_damage = $a_weapon['i_damage'];
+      $i_heat = $a_weapon['i_heat'];
 
       if($a_weapon['sid_type'] == 'Missile')
       {
         if($a_weapon['s_subtype'] == 'Streak')
+        {
           $i_cluster = $a_weapon['i_damage'];
+          $i_heat = intval(ceil($i_heat/2));
+        }
         else
           $i_cluster = WeaponData::getClusterHits($a_weapon['i_damage'],7);
 
@@ -46,10 +59,36 @@ class Analyze
       else if($a_weapon['s_subtype'] == 'Ultra')
       {
         $i_damage = intval($i_damage * 1.4);
+        $i_heat = intval($i_heat*2);
+      }
+      else if($a_weapon['s_subtype'] == 'Rotary')
+      {
+        $i_damage = intval($i_damage * 3);
+        $i_heat = intval($i_heat*5);
       }
 
+      $i_accuracy = $a_weapon['i_accuracy'];
+      if($has_tarcomp)
+        $i_accuracy -= WeaponData::usesTargetingComputer($a_weapon['sid_type'], $a_weapon['s_subtype'])?1:0;
+      $f_accuracy = match($i_accuracy)
+      {
+        -4 => 1.7,
+        -3 => 1.6,
+        -2 => 1.45,
+        -1 => 1.25,
+        0 => 1,
+        1 => 0.8,
+        default => 1,
+      };
+
       //printf("%30s     %5d     %5d     %5d\n",$s_name,$a_weapon['i_long'],$i_damage,$a_weapon['i_accuracy']);
-      $i_offence += $i_range * $a_weapon['i_damage'] * intval(ceil(1+(-0.25 * $a_weapon['i_accuracy'])));
+      $i_offence += $i_range * intval(ceil($i_damage * $f_accuracy));
+      $i_heat_max += $i_heat;
+    }
+
+    if($this->a_mech['i_heatsink'] < $i_heat_max)
+    {
+      $i_offence = intval(ceil($i_offence * $this->a_mech['i_heatsink'] / $i_heat_max));
     }
 
     $this->a_mech['a_calc'] = [
@@ -93,6 +132,7 @@ class Analyze
     $this->a_mech['s_armour'] = $s_armour;
     $this->a_mech['i_engine'] = intval($i_engine);
     $this->a_mech['s_engine'] = Tables::getEngineType($s_engine);
+    $this->a_mech['i_heatsink'] = Tables::getHeatSink($a_row['Heatsink']);
     $this->a_mech['i_tech'] = Tables::getTechBase($a_row['TechBase']);
     $this->a_mech['i_struct'] = $i_struct;
     $this->a_mech['i_walk'] = intval($a_row['Walk']);
@@ -101,15 +141,64 @@ class Analyze
     $this->a_mech['i_run_tmm'] = \BT_Analysis\Tables::getTMM($this->a_mech['i_run']);
     $this->a_mech['i_jump'] = intval($a_row['Jump']);
     $this->a_mech['i_jump_tmm'] = \BT_Analysis\Tables::getTMM($this->a_mech['i_jump'],true);
+    $this->a_mech['is_invalid'] = false;
+    $this->a_mech['is_unsporting'] = false;
+
+    if(str_contains(strtolower($a_row['Armor']),'stealth'))
+      $this->a_mech['has_stealth'] = true;
+    else
+      $this->a_mech['has_stealth'] = false;
+    if(str_contains(strtolower($a_row['Equipment']),'targeting computer'))
+      $this->a_mech['has_tarcomp'] = true;
+    else
+      $this->a_mech['has_tarcomp'] = false;
 
     return [];
   }
 
+  public function getWeaponData(string $s_weapon): array
+  {
+    // Parse error:
+    if((str_contains($s_weapon,'Mass') && str_contains($s_weapon,'Engine')) ||
+      str_contains($s_weapon,'HD:3:'))
+    {
+      $this->a_mech['is_invalid'] = true;
+      return [];
+    }
+
+    $a_weapon = \BT_Analysis\Tables::getWeapons($s_weapon);
+    $a_data = [];
+    foreach($a_weapon as $s_weapon)
+    {
+      if(str_contains($s_weapon,'Mech Taser') || str_contains($s_weapon,'TSEMP'))
+      {
+        $this->a_mech['is_unsporting'] = true;
+        break;
+      }
+
+      if(str_contains($s_weapon,'OS)') ||
+        str_contains($s_weapon,'Rocket Launcher') ||
+        str_contains($s_weapon,'RocketLauncher') ||
+        str_contains($s_weapon,'(R)')
+      )
+        continue;
+
+      $s_weapon = preg_replace('/^[0-9]* /','',$s_weapon);
+      $x_result = WeaponData::getWeapon($s_weapon);
+      if(!$x_result)
+      {
+        echo $s_weapon.PHP_EOL;
+        exit(); // On error, exit;
+      }
+      else
+        $a_data[] = $x_result;
+    }
+    return $a_data;
+  }
+
   public function offense(array $a_row)
   {
-    $this->a_mech['a_weapon_list'] = Tables::getWeaponData($a_row['Weapon']);
-    if(str_contains(strtolower($a_row['Equipment']),'targeting computer'))
-      $this->a_mech['has_tarcomp'] = true;
+    $this->a_mech['a_weapon_list'] = $this->getWeaponData($a_row['Weapon']);
   }
 
   public function setMech(array $a_row)
@@ -119,13 +208,23 @@ class Analyze
     $this->calcA();
 //      var_dump($this->a_mech);
 //    var_dump($this->a_mech['a_calc']);
-    printf("%-30s %-10s -   %3d   %3d   %3d\n",
-      $this->a_mech['s_chassis'],
-      $this->a_mech['s_model'],
-      $this->a_mech['a_calc']['i_defence'],
-      $this->a_mech['a_calc']['i_offence'],
-      $this->a_mech['a_calc']['i_total'],
-    );
+    $i_ratio = intval(($this->a_mech['a_calc']['i_total'] / $this->a_mech['i_bv'])*1000);
+    if(!$this->a_mech['is_unsporting'] && !$this->a_mech['is_invalid'])
+      printf("%-30s %-20s -   %4d   %4d   %4d    %2s    %4d\n",
+        $this->a_mech['s_chassis'],
+        $this->a_mech['s_model'],
+        $this->a_mech['a_calc']['i_defence'],
+        $this->a_mech['a_calc']['i_offence'],
+        $this->a_mech['a_calc']['i_total'],
+        !empty($this->a_mech['has_tarcomp'])?'TC':'',
+        $i_ratio
+      );
+    else
+      printf("%-30s %-20s -   %s\n",
+        $this->a_mech['s_chassis'],
+        $this->a_mech['s_model'],
+        ($this->a_mech['is_unsporting']?'Unsporting Equipment':'').($this->a_mech['is_invalid']?' Invalid':'')
+      );
   }
 }
 

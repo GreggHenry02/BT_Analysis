@@ -26,6 +26,15 @@ class Tables
     return $a_engine[0].$s_append;
   }
 
+  public static function getHeatSink(string $s_heatsink): int
+  {
+    $a_heatsink = explode(' ',$s_heatsink);
+    $i_heatsink = $a_heatsink[0];
+    if(str_contains(strtolower($s_heatsink),'double'))
+      $i_heatsink *= 2;
+    return $i_heatsink;
+  }
+
   public static function getTechBase(string $s_tech): int
   {
     if(str_contains(strtolower($s_tech),'sphere'))
@@ -83,14 +92,16 @@ class Tables
     $a_data = [];
     foreach($a_weapon as $s_weapon)
     {
+      $s_weapon = preg_replace('/^[0-9]* /','',$s_weapon);
+      $s_weapon = trim(str_replace('(R)','',$s_weapon));
       $x_result = WeaponData::getWeapon($s_weapon);
       if(!$x_result)
       {
-//        var_dump(WeaponData::$a_weapon);
         echo $s_weapon.PHP_EOL;
+        exit(); // On error, exit;
       }
-
-      $a_data[] = $x_result;
+      else
+        $a_data[] = $x_result;
     }
     return $a_data;
   }
