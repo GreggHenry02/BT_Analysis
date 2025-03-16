@@ -21,19 +21,38 @@ $o_result = $o_mysqli->query("
   where
     TechBase like '%Inner Sphere%' and
     BV <> 0 and
-    Mass = 20
+    Mass >= 20 and
+    Mass <= 100
 ");
-
-//TR1
-//BLR-1G
 
 WeaponData::readFile();
 //var_dump(WeaponData::$a_weapon);
 $o_mech = new Analyze();
+
+printf("%-30s %-20s -   %4s   %4s   %4s    %2s    %4s\n",
+  'Chassis', 'Model', 'Def', 'Off', 'Totl', 'TC', 'Rato'
+);
+
 while($a_record = $o_result->fetch_assoc())
 {
-//  Analyze::Mech($a_record);
   $o_mech->setMech($a_record);
+  $a_calc = $o_mech->getCalc();
+
+  if(empty($a_calc))
+    continue;
+
+  $s_insert = '"'.implode('","',[
+      $a_record['k_mtf'],
+      $a_calc['i_defence'],
+      $a_calc['i_offence'],
+      $a_calc['i_total'],
+      $a_calc['i_ratio'],
+    ]).'"';
+  $s_insert = "insert into calcA (k_mtf,i_defence,i_offence,i_total,i_ratio)
+      values (".$s_insert.")";
+
+  $o_mysqli->query($s_insert);
 }
+
 
 ?>

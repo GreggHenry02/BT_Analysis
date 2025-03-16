@@ -14,15 +14,17 @@ class Analyze
 
   public function calcA(): array
   {
-    $i_defence = $this->a_mech['i_armour'] + $this->a_mech['i_struct'];
+    $i_defence = $this->a_mech['i_armour'] * 1.5 + $this->a_mech['i_struct'];
     $i_tmm = max($this->a_mech['i_run_tmm'],$this->a_mech['i_jump_tmm']);
     $i_tmm += !empty($this->a_mech['has_stealth'])?1:0;
     $i_defence = intval(ceil($i_defence * (1+($i_tmm * .25))));
 
+    // Light and XL engines reduce mech longevity by 10% and 25% respectively.
+    // A mech with a standard engine is very diminished by losing a torso, so don't apply the full penalty.
     if(str_contains($this->a_mech['s_engine'],'xl'))
-      $i_defence = intval(ceil($i_defence * .75));
+      $i_defence = intval(ceil($i_defence * .85));
     else if(str_contains($this->a_mech['s_engine'],'light'))
-      $i_defence = intval(ceil($i_defence * .90));
+      $i_defence = intval(ceil($i_defence * .95));
 
     $i_offence = 0;
     $i_heat_max = 0;
@@ -82,6 +84,7 @@ class Analyze
       };
 
       //printf("%30s     %5d     %5d     %5d\n",$s_name,$a_weapon['i_long'],$i_damage,$a_weapon['i_accuracy']);
+
       $i_offence += $i_range * intval(ceil($i_damage * $f_accuracy));
       $i_heat_max += $i_heat;
     }
@@ -94,7 +97,8 @@ class Analyze
     $this->a_mech['a_calc'] = [
       'i_defence' => $i_defence,
       'i_offence' => $i_offence,
-      'i_total' => $i_defence + $i_offence
+      'i_ratio' => intval((($i_defence + $i_offence) / $this->a_mech['i_bv'])*1000),
+      'i_total' => $i_defence + $i_offence,
     ];
 
     return [];
@@ -156,6 +160,11 @@ class Analyze
     return [];
   }
 
+  public function getCalc(): array
+  {
+    return $this->a_mech['a_calc'];
+  }
+
   public function getWeaponData(string $s_weapon): array
   {
     // Parse error:
@@ -183,6 +192,9 @@ class Analyze
       )
         continue;
 
+      preg_match('/^[0-9]*/', $s_weapon, $a_match);
+      $i_multi = intval($a_match[0])?intval($a_match[0]):1;
+
       $s_weapon = preg_replace('/^[0-9]* /','',$s_weapon);
       $x_result = WeaponData::getWeapon($s_weapon);
       if(!$x_result)
@@ -191,7 +203,10 @@ class Analyze
         exit(); // On error, exit;
       }
       else
-        $a_data[] = $x_result;
+      {
+        for($i_count=1;$i_count<=$i_multi;$i_count++)
+          $a_data[] = $x_result;
+      }
     }
     return $a_data;
   }
@@ -206,10 +221,8 @@ class Analyze
     $this->defense($a_row);
     $this->offense($a_row);
     $this->calcA();
-//      var_dump($this->a_mech);
-//    var_dump($this->a_mech['a_calc']);
-    $i_ratio = intval(($this->a_mech['a_calc']['i_total'] / $this->a_mech['i_bv'])*1000);
     if(!$this->a_mech['is_unsporting'] && !$this->a_mech['is_invalid'])
+    {
       printf("%-30s %-20s -   %4d   %4d   %4d    %2s    %4d\n",
         $this->a_mech['s_chassis'],
         $this->a_mech['s_model'],
@@ -217,14 +230,17 @@ class Analyze
         $this->a_mech['a_calc']['i_offence'],
         $this->a_mech['a_calc']['i_total'],
         !empty($this->a_mech['has_tarcomp'])?'TC':'',
-        $i_ratio
+        $this->a_mech['a_calc']['i_ratio']
       );
+    }
     else
+    {
       printf("%-30s %-20s -   %s\n",
         $this->a_mech['s_chassis'],
         $this->a_mech['s_model'],
         ($this->a_mech['is_unsporting']?'Unsporting Equipment':'').($this->a_mech['is_invalid']?' Invalid':'')
       );
+    }
   }
 }
 

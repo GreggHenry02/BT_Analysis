@@ -29,7 +29,7 @@ class Tables
   public static function getHeatSink(string $s_heatsink): int
   {
     $a_heatsink = explode(' ',$s_heatsink);
-    $i_heatsink = $a_heatsink[0];
+    $i_heatsink = intval($a_heatsink[0]);
     if(str_contains(strtolower($s_heatsink),'double'))
       $i_heatsink *= 2;
     return $i_heatsink;
