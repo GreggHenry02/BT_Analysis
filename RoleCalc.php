@@ -259,6 +259,21 @@ class RoleCalc
   }
 
   /**
+   * Gets the point value to battle value ratio.
+   *
+   * @param array $a_mech - The array of Mech information.
+   * @param int $i_defence - The total defence value.
+   * @param int $i_offence - The total offence value.
+   * @return int - The ratio of points to BV, times 1000. Will equal the point total if no BV is set.
+   */
+  public function getRatio(array $a_mech, int $i_defence, int $i_offence): int
+  {
+    if(!empty($a_mech['i_bv']) && $a_mech['i_bv'] > 1)
+      return intval((($i_defence + $i_offence) / $a_mech['i_bv'])*1000);
+    return ($i_defence + $i_offence);
+  }
+
+  /**
    * Sets all weapons parameters for this particular mech.
    *
    * @param $a_mech
@@ -310,7 +325,7 @@ class RoleCalc
     return [
       'i_defence' => $i_defence,
       'i_offence' => $i_offence,
-      'i_ratio' => intval((($i_defence + $i_offence) / $a_mech['i_bv'])*1000),
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
       'i_total' => $i_defence + $i_offence,
     ];
   }
@@ -323,17 +338,16 @@ class RoleCalc
    */
   public function roleCavalry(array $a_mech)
   {
+    $is_jump = $a_mech['i_jump_tmm'] > $a_mech['i_run_tmm'];
     $i_tmm = max($a_mech['i_run_tmm'],$a_mech['i_jump_tmm']);
     $i_defence = $this->calculateDefence($a_mech, [
       'i_tmm_bonus' => intval(
-        min(ceil($i_tmm*1.5)-$i_tmm,2)
+        min(ceil($i_tmm*1.32)-$i_tmm,2)
       ),
       'is_stationary' => false,
     ]);
     $i_offence = $this->calculateOffence($a_mech, [
-      'i_modifier' => 1,
-      'i_speed_boost' => 5,
-      'i_start' => 6,
+      'i_modifier' => 1 + ($is_jump?1:0),
     ]);
     // Better for comparisons.
     $i_offence *= 2;
@@ -341,7 +355,7 @@ class RoleCalc
     return [
       'i_defence' => $i_defence,
       'i_offence' => $i_offence,
-      'i_ratio' => intval((($i_defence + $i_offence) / $a_mech['i_bv'])*1000),
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
       'i_total' => $i_defence + $i_offence,
     ];
   }
@@ -366,7 +380,7 @@ class RoleCalc
     return [
       'i_defence' => $i_defence,
       'i_offence' => $i_offence,
-      'i_ratio' => intval((($i_defence + $i_offence) / $a_mech['i_bv'])*1000),
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
       'i_total' => $i_defence + $i_offence,
     ];
   }
@@ -392,7 +406,7 @@ class RoleCalc
     return [
       'i_defence' => $i_defence,
       'i_offence' => $i_offence,
-      'i_ratio' => intval((($i_defence + $i_offence) / $a_mech['i_bv'])*1000),
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
       'i_total' => $i_defence + $i_offence,
     ];
   }

@@ -204,6 +204,7 @@ class Analyze
     $a_struct = \BT_Analysis\LocationSid::INTERNAL_STRUCTURE[$a_row['Mass']];
     $i_struct = array_sum($a_struct)*2 - $a_struct[0];
 
+    $this->a_mech['k_mtf'] = $a_row['k_mtf'];
     $this->a_mech['s_chassis'] = $a_row['Chassis'];
     $this->a_mech['s_model'] = $a_row['Model'];
     $this->a_mech['i_bv'] = intval($a_row['BV']);
@@ -213,9 +214,10 @@ class Analyze
     $this->a_mech['s_armour'] = $s_armour;
     $this->a_mech['i_engine'] = intval($i_engine);
     $this->a_mech['s_engine'] = Tables::getEngineType($s_engine);
-    $this->a_mech['s_equipment'] = $a_row['Equipment'];
+    $this->a_mech['s_equipment'] = $a_row['Equipment'] ?? '';
     $this->a_mech['i_heatsink'] = Tables::getHeatSink($a_row['Heatsink']);
     $this->a_mech['i_tech'] = Tables::getTechBase($a_row['TechBase']);
+    $this->a_mech['s_struct'] = $a_row['Structure'] ?? 'Standard';
     $this->a_mech['i_struct'] = $i_struct;
     $this->a_mech['i_walk'] = intval($a_row['Walk']);
     $this->a_mech['i_walk_tmm'] = \BT_Analysis\Tables::getTMM($this->a_mech['i_walk']);
@@ -230,15 +232,15 @@ class Analyze
       $this->a_mech['has_stealth'] = true;
     else
       $this->a_mech['has_stealth'] = false;
-    if(str_contains(strtolower($a_row['Equipment']),'targeting computer'))
+    if(str_contains(strtolower($this->a_mech['s_equipment']),'targeting computer'))
       $this->a_mech['has_tarcomp'] = true;
     else
       $this->a_mech['has_tarcomp'] = false;
-    if(str_contains(strtolower($a_row['Equipment']), 'ArtemisIV'))
+    if(str_contains(strtolower($this->a_mech['s_equipment']), 'ArtemisIV'))
       $this->a_mech['has_artemisIV'] = true;
     else
       $this->a_mech['has_artemisIV'] = false;
-    if(str_contains(strtolower($a_row['Equipment']), 'ArtemisV'))
+    if(str_contains(strtolower($this->a_mech['s_equipment']), 'ArtemisV'))
       $this->a_mech['has_artemisV'] = true;
     else
       $this->a_mech['has_artemisV'] = false;
@@ -331,9 +333,9 @@ class Analyze
   /**
    * Output processed mech information. Some combination of printing to the console and saving to the DB.
    *
-   * @param array $a_row
-   * @param object $o_mysqli
-   * @param int $i_test_level
+   * @param array $a_row - Basic information for the mech from the database.
+   * @param object $o_mysqli - The initialized database object.
+   * @param int $i_test_level - The test level. If `0`, perform the action. If `1` or greater, log to console.
    * @return void
    */
   public function submit(array $a_row, object $o_mysqli, int $i_test_level=0): void
@@ -389,6 +391,52 @@ class Analyze
 
         $o_mysqli->query($s_insert);
       }
+    }
+  }
+
+  /**
+   * Update additional columns in mtf_parse.
+   *
+   * @param array $a_row - Basic information for the mech from the database.
+   * @param object $o_mysqli - The initialized database object.
+   * @param int $i_test_level - The test level. If `0`, perform the action. If `1` or greater, log to console.
+   * @return void
+   */
+  public function updateMtfParse(array $a_row, object $o_mysqli, int $i_test_level=0): void
+  {
+    $this->setMech($a_row);
+
+    $a_equipment_list = [];
+    foreach(WeaponData::getElectronics() as $s_name => $a_equipment)
+    {
+      if(str_contains($this->a_mech['s_critical'], $s_name) ||
+        str_contains($this->a_mech['s_critical'], $a_equipment['s_display_name'])
+      )
+        $a_equipment_list[$a_equipment['s_display_name']] = true;
+    }
+
+    $s_insert = sprintf("
+      update 
+        mtf_parse
+      set 
+        ArmorType = '%s',
+        ArmorTotal = %d,
+        StructureTotal = %d,
+        Special = '%s'
+      where
+        k_mtf = %d
+    ",trim($this->a_mech['s_armour']),
+      $this->a_mech['i_armour'],
+      $this->a_mech['i_struct'],
+      implode(",\n",array_keys($a_equipment_list)),
+      $this->a_mech['k_mtf']
+    );
+
+    if($i_test_level > 0)
+      echo $s_insert.PHP_EOL;
+    else
+    {
+      $o_mysqli->query($s_insert);
     }
   }
 }

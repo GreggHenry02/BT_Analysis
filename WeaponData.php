@@ -52,6 +52,14 @@ class WeaponData
   public static ?array $a_ammo_alias = null;
 
   /**
+   * List of all available special equipment.
+   * The key is the equipments' name.
+   *
+   * @var array|null
+   */
+  public static ?array $a_special_equipment = null;
+
+  /**
    * List of all available weapon types.
    * The key is the weapon's name.
    *
@@ -287,6 +295,34 @@ class WeaponData
         $a_melee_list[$a_weapon['s_name']] = $a_weapon;
     }
     return $a_melee_list;
+  }
+
+  /**
+   * Returns a list of all special equipment.
+   *
+   * @return array - A list of equipment, the key is the name.
+   */
+  public static function getElectronics(): array
+  {
+    if(self::$a_special_equipment === null)
+    {
+      $a_electronics = [];
+      foreach(self::$a_weapon as $s_name => $a_weapon)
+      {
+        if(in_array($a_weapon['s_subtype'],[
+          'AP',
+          'C3',
+          'ECM',
+          'Electronics',
+          'Myomer',
+          'TAG',
+          'TC',
+        ]))
+          $a_electronics[$s_name] = $a_weapon;
+      }
+      self::$a_special_equipment = $a_electronics;
+    }
+    return self::$a_special_equipment;
   }
 
   /**
