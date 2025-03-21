@@ -3,6 +3,7 @@
 namespace BT_Analysis;
 
 require_once "LocationSid.php";
+require_once "RoleCalc.php";
 require_once "Tables.php";
 
 use BT_Analysis\LocationSid;
@@ -12,6 +13,11 @@ class Analyze
 {
   private array $a_mech = [];
 
+  /**
+   * Performs the 'A' variant calculation to determine a mech's value.
+   *
+   * @return array - The calculated factors.
+   */
   public function calcA(): array
   {
     $i_defence = $this->a_mech['i_armour'] * 1.5 + $this->a_mech['i_struct'];
@@ -104,7 +110,77 @@ class Analyze
     return [];
   }
 
-  public function defense(array $a_row): array
+  /**
+   * Checks a mech's equipment and criticals to see if it has arm mounted AES or can flip arms.
+   *
+   * @return void
+   */
+  public function checkArms()
+  {
+    $this->a_mech['has_AES_left'] = false;
+    $this->a_mech['has_AES_right'] = false;
+    $this->a_mech['can_flip_arms'] = false;
+    $i_lower_arm = 2;
+
+    if(str_contains($this->a_mech['s_equipment'],'ISAES:'))
+    {
+      $s_context = 'Left Arm';
+      $a_line = explode("\n", $this->a_mech['s_critical']);
+      foreach($a_line as $s_line)
+      {
+        if($s_line == '' && $s_context == 'Right Arm')
+          break; // We don't need to check all the critical locations.
+        if($s_line == '')
+          $s_context = '';
+        else if(str_contains($s_line,'Right Arm'))
+          $s_context = 'Right Arm';
+        else if(str_contains($s_line,'ISAES'))
+        {
+          if($s_context == 'Left Arm')
+            $this->a_mech['has_AES_left'] = true;
+          elseif($s_context == 'Right Arm')
+            $this->a_mech['has_AES_right'] = true;
+        }
+        if(str_contains($s_line,'Lower Arm Actuator'))
+          $i_lower_arm --;
+      }
+    }
+    if($i_lower_arm == 0)
+      $this->a_mech['can_flip_arms'] = true;
+  }
+
+  /**
+   * Checks if the mech has a melee weapon.
+   *
+   * @return void
+   */
+  public function checkMelee()
+  {
+    $a_melee_list = WeaponData::getMeleeWeaponList();
+    $a_melee_select = $a_melee_list['Kick'];
+    // A mech can only perform one melee attack in a turn, in most cases.
+    // Finding the first melee weapon should be sufficient. This array describes the one weapon.
+    foreach($a_melee_list as $a_melee)
+    {
+      if(str_contains($this->a_mech['s_critical'],$a_melee['s_name']) ||
+        str_contains($this->a_mech['s_critical'],$a_melee['s_display_name'])
+      )
+      {
+        $a_melee_select = $a_melee;
+        break;
+      }
+    }
+
+    $this->a_mech['a_melee_select'] = $a_melee_select;
+  }
+
+  /**
+   * Sets the mech's general and defensive information.
+   *
+   * @param array $a_row - The list of the mech's data from the database's row.
+   * @return void
+   */
+  public function defense(array $a_row)
   {
     $a_split = explode("\n",$a_row['Armor']);
     $i_armour = 0;
@@ -132,10 +208,12 @@ class Analyze
     $this->a_mech['s_model'] = $a_row['Model'];
     $this->a_mech['i_bv'] = intval($a_row['BV']);
     $this->a_mech['i_mass'] = intval($a_row['Mass']);
+    $this->a_mech['s_critical'] = $a_row['Critical'];
     $this->a_mech['i_armour'] = intval($i_armour);
     $this->a_mech['s_armour'] = $s_armour;
     $this->a_mech['i_engine'] = intval($i_engine);
     $this->a_mech['s_engine'] = Tables::getEngineType($s_engine);
+    $this->a_mech['s_equipment'] = $a_row['Equipment'];
     $this->a_mech['i_heatsink'] = Tables::getHeatSink($a_row['Heatsink']);
     $this->a_mech['i_tech'] = Tables::getTechBase($a_row['TechBase']);
     $this->a_mech['i_struct'] = $i_struct;
@@ -156,15 +234,32 @@ class Analyze
       $this->a_mech['has_tarcomp'] = true;
     else
       $this->a_mech['has_tarcomp'] = false;
-
-    return [];
+    if(str_contains(strtolower($a_row['Equipment']), 'ArtemisIV'))
+      $this->a_mech['has_artemisIV'] = true;
+    else
+      $this->a_mech['has_artemisIV'] = false;
+    if(str_contains(strtolower($a_row['Equipment']), 'ArtemisV'))
+      $this->a_mech['has_artemisV'] = true;
+    else
+      $this->a_mech['has_artemisV'] = false;
   }
 
+  /**
+   * Gets a mech's calculated factors.
+   *
+   * @return array - The mech's calculated factors.
+   */
   public function getCalc(): array
   {
     return $this->a_mech['a_calc'];
   }
 
+  /**
+   * Parses a mech's weapon list.
+   *
+   * @param string $s_weapon - A text listing of the mech's weapons.
+   * @return array - A list of a mech's weapons.
+   */
   public function getWeaponData(string $s_weapon): array
   {
     // Parse error:
@@ -179,12 +274,6 @@ class Analyze
     $a_data = [];
     foreach($a_weapon as $s_weapon)
     {
-      if(str_contains($s_weapon,'Mech Taser') || str_contains($s_weapon,'TSEMP'))
-      {
-        $this->a_mech['is_unsporting'] = true;
-        break;
-      }
-
       if(str_contains($s_weapon,'OS)') ||
         str_contains($s_weapon,'Rocket Launcher') ||
         str_contains($s_weapon,'RocketLauncher') ||
@@ -196,6 +285,8 @@ class Analyze
       $i_multi = intval($a_match[0])?intval($a_match[0]):1;
 
       $s_weapon = preg_replace('/^[0-9]* /','',$s_weapon);
+      $a_split = explode(',',$s_weapon);
+      $s_location = trim($a_split[1]??'UNSET');
       $x_result = WeaponData::getWeapon($s_weapon);
       if(!$x_result)
       {
@@ -204,6 +295,7 @@ class Analyze
       }
       else
       {
+        $x_result['s_location'] = $s_location;
         for($i_count=1;$i_count<=$i_multi;$i_count++)
           $a_data[] = $x_result;
       }
@@ -211,35 +303,92 @@ class Analyze
     return $a_data;
   }
 
+  /**
+   * Gather offensive information.
+   *
+   * @param array $a_row
+   * @return void
+   */
   public function offense(array $a_row)
   {
     $this->a_mech['a_weapon_list'] = $this->getWeaponData($a_row['Weapon']);
+    $this->checkArms();
+    $this->checkMelee();
   }
 
+  /**
+   * Sets the mech value in the database and prints to console.
+   *
+   * @param array $a_row - The mech's information from the database.
+   * @return void
+   */
   public function setMech(array $a_row)
   {
     $this->defense($a_row);
     $this->offense($a_row);
-    $this->calcA();
-    if(!$this->a_mech['is_unsporting'] && !$this->a_mech['is_invalid'])
+  }
+
+  /**
+   * Output processed mech information. Some combination of printing to the console and saving to the DB.
+   *
+   * @param array $a_row
+   * @param object $o_mysqli
+   * @param int $i_test_level
+   * @return void
+   */
+  public function submit(array $a_row, object $o_mysqli, int $i_test_level=0): void
+  {
+    $this->setMech($a_row);
+    $o_role_calc = new \BT_Analysis\RoleCalc();
+    $o_role_calc->roleAll($this->a_mech);
+    $a_calc_collection = $o_role_calc->submit($this->a_mech);
+
+    if(!empty($i_test_level))
     {
-      printf("%-30s %-20s -   %4d   %4d   %4d    %2s    %4d\n",
-        $this->a_mech['s_chassis'],
-        $this->a_mech['s_model'],
-        $this->a_mech['a_calc']['i_defence'],
-        $this->a_mech['a_calc']['i_offence'],
-        $this->a_mech['a_calc']['i_total'],
-        !empty($this->a_mech['has_tarcomp'])?'TC':'',
-        $this->a_mech['a_calc']['i_ratio']
-      );
+      if(!$this->a_mech['is_unsporting'] && !$this->a_mech['is_invalid'])
+      {
+        printf("%-30s %-20s -   %4d   %4d   %4d    %2s    %4d\n",
+          $this->a_mech['s_chassis'],
+          $this->a_mech['s_model'],
+          $a_calc_collection['Brawler']['i_defence'],
+          $a_calc_collection['Brawler']['i_offence'],
+          $a_calc_collection['Brawler']['i_total'],
+          !empty($this->a_mech['has_tarcomp'])?'TC':'',
+          $a_calc_collection['Brawler']['i_ratio']
+        );
+      }
+      else
+      {
+        printf("%-30s %-20s -   %s\n",
+          $this->a_mech['s_chassis'],
+          $this->a_mech['s_model'],
+          ($this->a_mech['is_unsporting']?'Unsporting Equipment':'').($this->a_mech['is_invalid']?' Invalid':'')
+        );
+      }
+      if($i_test_level >= 2)
+        var_dump($a_calc_collection);
     }
     else
     {
-      printf("%-30s %-20s -   %s\n",
-        $this->a_mech['s_chassis'],
-        $this->a_mech['s_model'],
-        ($this->a_mech['is_unsporting']?'Unsporting Equipment':'').($this->a_mech['is_invalid']?' Invalid':'')
-      );
+      foreach($a_calc_collection as $s_role => $a_calc)
+      {
+        if(empty($a_calc))
+          continue;
+
+        $s_insert = '"'.implode('","',[
+            $a_row['k_mtf'],
+            $a_row['Id'],
+            $a_calc['i_defence'],
+            $a_calc['i_offence'],
+            $a_calc['i_ratio'],
+            $a_calc['i_total'],
+            $s_role
+          ]).'"';
+        $s_insert = "insert into calc_tag (k_mtf,Id,i_defence,i_offence,i_ratio,i_total,s_role)
+          values (".$s_insert.")";
+
+        $o_mysqli->query($s_insert);
+      }
     }
   }
 }

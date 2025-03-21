@@ -35,23 +35,7 @@ printf("%-30s %-20s -   %4s   %4s   %4s    %2s    %4s\n",
 
 while($a_record = $o_result->fetch_assoc())
 {
-  $o_mech->setMech($a_record);
-  $a_calc = $o_mech->getCalc();
-
-  if(empty($a_calc))
-    continue;
-
-  $s_insert = '"'.implode('","',[
-      $a_record['k_mtf'],
-      $a_calc['i_defence'],
-      $a_calc['i_offence'],
-      $a_calc['i_total'],
-      $a_calc['i_ratio'],
-    ]).'"';
-  $s_insert = "insert into calcA (k_mtf,i_defence,i_offence,i_total,i_ratio)
-      values (".$s_insert.")";
-
-  $o_mysqli->query($s_insert);
+  $o_mech->submit($a_record,$o_mysqli,0);
 }
 
 

@@ -274,6 +274,22 @@ class WeaponData
   }
 
   /**
+   * Gets a list of melee weapons.
+   *
+   * @return array - A list of all melee weapons. The key is the weapon name, the values are as read from the csv.
+   */
+  public static function getMeleeWeaponList(): array
+  {
+    $a_melee_list = [];
+    foreach(self::$a_weapon as $a_weapon)
+    {
+      if($a_weapon['sid_type'] == 'Melee')
+        $a_melee_list[$a_weapon['s_name']] = $a_weapon;
+    }
+    return $a_melee_list;
+  }
+
+  /**
    * Gets weapon data.
    *
    * @param string $s_name - The name of the weapon to check, in MTF format such as 'ISMediumLaser'.
@@ -348,11 +364,15 @@ class WeaponData
         $a_element = explode(',',$s_line);
         if(count($a_element) >= count($a_header) && !empty($a_element[$a_header['Name']]))
         {
+          $a_damage = str_contains($a_element[$a_header['Damage']],' ')
+            ?explode(' ',$a_element[$a_header['Damage']])
+            :[intval($a_element[$a_header['Damage']])];
           $a_weapon = [
+            'a_damage' => $a_damage,
             'i_accuracy' => intval($a_element[$a_header['Accuracy']]),
             'i_ammo_per_ton' => intval($a_element[$a_header['AmmoPerTon']]),
             'i_critical' => intval($a_element[$a_header['Criticals']]),
-            'i_damage' => intval($a_element[$a_header['Damage']]),
+            'i_damage' => $a_damage[0],
             'i_heat' => intval($a_element[$a_header['Heat']]),
             'i_medium' => intval($a_element[$a_header['Medium']]),
             'i_min_range' => intval($a_element[$a_header['Min.Range']]),
@@ -386,6 +406,28 @@ class WeaponData
       if(!empty($a_weapon['s_ammo_alias']))
         self::$a_ammo_alias[trim($a_weapon['s_ammo_alias'])] = trim($s_name);
     }
+  }
+
+  /**
+   * Determines if this weapon takes advantage or Artemis IV or V FCS.
+   *
+   * @param string $sid_type
+   * @param string $s_subtype
+   * @return bool
+   */
+  public static function usesArtemis(string $sid_type, string $s_subtype): bool
+  {
+    if(in_array($sid_type,[
+        'Missile',
+      ]) && in_array($s_subtype,[
+        'LRM',
+        'LRT',
+        'SRM',
+        'SRT',
+        'MML',
+      ]))
+      return true;
+    return false;
   }
 
   /**
