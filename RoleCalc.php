@@ -14,6 +14,7 @@ class RoleCalc
   private array $a_brawler;
   private array $a_cavalry;
   private array $a_harasser;
+  private array $a_hunter;
   private array $a_mech;
   private array $a_sniper;
 
@@ -140,7 +141,12 @@ class RoleCalc
         if(!empty($a_weapon['a_damage'][1]))
           $i_damage = $a_weapon['a_damage'][1];
       }
-
+      else if($s_range_bracket == 'Short' && $i_range > $a_weapon['i_short'] && $a_weapon['i_long'])
+      {
+        $s_range_bracket = 'Long';
+        if(!empty($a_weapon['a_damage'][2]))
+          $i_damage = $a_weapon['a_damage'][2];
+      }
       if($s_range_bracket == 'Medium' && $i_range > $a_weapon['i_medium'] && $a_weapon['i_long'])
       {
         $s_range_bracket = 'Long';
@@ -305,7 +311,8 @@ class RoleCalc
     $this->a_mech = $a_mech;
     $this->a_brawler = $this->roleBrawler($a_mech);
     $this->a_cavalry = $this->roleCavalry($a_mech);
-    $this->a_harasser = $this->roleHarraser($a_mech);
+    $this->a_harasser = $this->roleHarasser($a_mech);
+    $this->a_hunter = $this->roleHunter($a_mech);
     $this->a_sniper = $this->roleSniper($a_mech);
   }
 
@@ -342,15 +349,18 @@ class RoleCalc
     $i_tmm = max($a_mech['i_run_tmm'],$a_mech['i_jump_tmm']);
     $i_defence = $this->calculateDefence($a_mech, [
       'i_tmm_bonus' => intval(
-        min(ceil($i_tmm*1.32)-$i_tmm,2)
+        min(round($i_tmm*1.24)-$i_tmm,2)
       ),
       'is_stationary' => false,
     ]);
     $i_offence = $this->calculateOffence($a_mech, [
       'i_modifier' => 1 + ($is_jump?1:0),
+      'i_start' => 6,
+      'i_speed_boost' => min($a_mech['i_run']-3,6)
     ]);
+
     // Better for comparisons.
-    $i_offence *= 2;
+    $i_offence = intval($i_offence * 1.5);
 
     return [
       'i_defence' => $i_defence,
@@ -362,11 +372,14 @@ class RoleCalc
 
   /**
    * Calculates values for the harasser role.
+   * Harassers use high speed to get close to their target.
+   * This lets them use short range weaponry more effectively.
+   * A Jenner-F is an harasser.
    *
    * @param array $a_mech
    * @return array
    */
-  public function roleHarraser(array $a_mech)
+  public function roleHarasser(array $a_mech): array
   {
     $i_defence = $this->calculateDefence($a_mech, [
       'use_slow_move' => true,
@@ -374,8 +387,38 @@ class RoleCalc
     $i_offence = $this->calculateOffence($a_mech, [
       'i_end' => 3,
       'i_modifier' => 1,
-      'i_speed_boost' => $a_mech['i_walk']
+      'i_speed_boost' => min($a_mech['i_walk'], $a_mech['i_jump'])
     ]);
+
+    return [
+      'i_defence' => $i_defence,
+      'i_offence' => $i_offence,
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
+      'i_total' => $i_defence + $i_offence,
+    ];
+  }
+
+  /**
+   * Calculates values for the hunter role.
+   * An hunter is like a harasser except it is optimized for engaging with
+   * fast moving targets.
+   *
+   * @param array $a_mech
+   * @return array
+   */
+  public function roleHunter(array $a_mech): array
+  {
+    $i_defence = $this->calculateDefence($a_mech, [
+      'use_slow_move' => true,
+    ]);
+    $i_offence = $this->calculateOffence($a_mech, [
+      'i_end' => 3,
+      'i_modifier' => 4,
+      'i_speed_boost' => min($a_mech['i_run']-3, $a_mech['i_jump'])
+    ]);
+
+    // Better for comparisons.
+    $i_offence = intval($i_offence * 2.5);
 
     return [
       'i_defence' => $i_defence,
@@ -399,7 +442,7 @@ class RoleCalc
     // Snipers stay at range, so calculate ranges 1-5 as range 6.
     $i_offence = $this->calculateOffence($a_mech, [
       'i_modifier' => -2,
-      'i_speed_boost' => 5,
+      'i_speed_boost' => 3,
       'i_start' => 6,
     ]);
 
@@ -411,12 +454,18 @@ class RoleCalc
     ];
   }
 
-  public function submit()
+  /**
+   * Gets a collection of mech role values.
+   *
+   * @return array - The values for each role.
+   */
+  public function submit(): array
   {
     return [
       'Brawler' => $this->a_brawler,
       'Cavalry' => $this->a_cavalry,
       'Harasser' => $this->a_harasser,
+      'Hunter' => $this->a_hunter,
       'Sniper' => $this->a_sniper,
     ];
   }

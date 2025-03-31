@@ -236,14 +236,25 @@ class Analyze
       $this->a_mech['has_tarcomp'] = true;
     else
       $this->a_mech['has_tarcomp'] = false;
-    if(str_contains(strtolower($this->a_mech['s_equipment']), 'ArtemisIV'))
+    if(str_contains(strtolower($this->a_mech['s_equipment']), 'artemisIV'))
       $this->a_mech['has_artemisIV'] = true;
     else
       $this->a_mech['has_artemisIV'] = false;
-    if(str_contains(strtolower($this->a_mech['s_equipment']), 'ArtemisV'))
+    if(str_contains(strtolower($this->a_mech['s_equipment']), 'artemisV'))
       $this->a_mech['has_artemisV'] = true;
     else
       $this->a_mech['has_artemisV'] = false;
+    if(str_contains(strtolower($this->a_mech['s_equipment']), 'partialwing'))
+    {
+      $this->a_mech['has_partial_wing'] = true;
+      if($this->a_mech['i_mass'] >= 60 && $this->a_mech['i_jump'] > 0)
+        $this->a_mech['i_jump'] += 1;
+      else
+        $this->a_mech['i_jump'] += 2;
+      $this->a_mech['i_heatsink'] += 3;
+    }
+    else
+      $this->a_mech['has_partial_wing'] = false;
   }
 
   /**
@@ -368,7 +379,21 @@ class Analyze
         );
       }
       if($i_test_level >= 2)
-        var_dump($a_calc_collection);
+      {
+        foreach($a_calc_collection as $s_calc => $a_calc)
+        {
+          printf("%-30s %-20s -   %4d   %4d   %4d    %2s    %4d\n",
+            '',
+            $s_calc,
+            $a_calc['i_defence'],
+            $a_calc['i_offence'],
+            $a_calc['i_total'],
+            !empty($this->a_mech['has_tarcomp'])?'TC':'',
+            $a_calc['i_ratio']
+          );
+        }
+//        var_dump($a_calc_collection);
+      }
     }
     else
     {

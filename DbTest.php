@@ -24,6 +24,8 @@ $o_result = $o_mysqli->query("
     Mass <= 100
 ");
 
+//     Model in ('BNC-9S','SRC-5C','CRD-9R','PXH-1','MS1-OF') and
+
 WeaponData::readFile();
 //var_dump(WeaponData::$a_weapon);
 $o_mech = new Analyze();
@@ -34,8 +36,8 @@ printf("%-30s %-20s -   %4s   %4s   %4s    %2s    %4s\n",
 
 while($a_record = $o_result->fetch_assoc())
 {
-//  $o_mech->submit($a_record,$o_mysqli,0);
-  $o_mech->updateMtfParse($a_record,$o_mysqli,0);
+  $o_mech->submit($a_record,$o_mysqli,0);
+//  $o_mech->updateMtfParse($a_record,$o_mysqli,0);
 }
 
 
