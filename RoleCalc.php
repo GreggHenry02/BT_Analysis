@@ -455,6 +455,32 @@ class RoleCalc
   }
 
   /**
+   * Calculates analysis for a specific range.
+   *
+   * @param array $a_mech
+   * @param int $i_range
+   * @return array
+   */
+  public function specificRange(array $a_mech, int $i_range): array
+  {
+    $i_defence = $this->calculateDefence($a_mech, [
+      'is_stationary' => false
+    ]);
+
+    $i_offence = $this->calculateOffence($a_mech, [
+      'i_end' => $i_range,
+      'i_start' => $i_range,
+    ]);
+
+    return [
+      'i_defence' => $i_defence,
+      'i_offence' => $i_offence,
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
+      'i_total' => $i_defence + $i_offence,
+    ];
+  }
+
+  /**
    * Gets a collection of mech role values.
    *
    * @return array - The values for each role.

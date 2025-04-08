@@ -342,6 +342,32 @@ class Analyze
   }
 
   /**
+   * Calculate analysis for the given range only.
+   *
+   * @param array $a_row
+   * @param object $o_mysqli
+   * @param int $i_test_level
+   * @param int $i_range
+   * @return void
+   */
+  public function specificRange(array $a_row, object $o_mysqli, int $i_test_level=0,int $i_range=1): void
+  {
+    $this->setMech($a_row);
+    $o_role_calc = new \BT_Analysis\RoleCalc();
+    $a_calc = $o_role_calc->specificRange($this->a_mech, $i_range);
+
+    printf("%-30s,    %-20s,    %4d,    %4d,    %4d,    %4d\n",
+      $this->a_mech['s_chassis'],
+      $this->a_mech['s_model'],
+      $a_calc['i_defence'],
+      $a_calc['i_offence'],
+      $a_calc['i_total'],
+      $a_calc['i_ratio']
+    );
+  }
+
+
+  /**
    * Output processed mech information. Some combination of printing to the console and saving to the DB.
    *
    * @param array $a_row - Basic information for the mech from the database.
