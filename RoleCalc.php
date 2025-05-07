@@ -46,7 +46,7 @@ class RoleCalc
     }
 
     $i_defence = ($a_mech['i_armour'] * 1.5) + $a_mech['i_struct'];
-    $i_defence = intval(ceil($i_defence * (1+($i_tmm * .20))));
+    $i_defence = intval(ceil($i_defence * (1+($i_tmm * .40))));
 
     // Light and XL engines reduce mech longevity by 10% and 25% respectively.
     // A mech with a standard engine is very diminished by losing a torso, so don't apply the full penalty.
@@ -206,12 +206,12 @@ class RoleCalc
         $i_range_modifier = $a_range['i_modifier'] + $i_modifier;
         $r_range_modifier = match($i_range_modifier)
         {
-          -6 => 1.85,
-          -5 => 1.80,
-          -4 => 1.70,
-          -3 => 1.60,
-          -2 => 1.45,
-          -1 => 1.25,
+          -6 => 2.50,
+          -5 => 2.40,
+          -4 => 2.25,
+          -3 => 2.00,
+          -2 => 1.75,
+          -1 => 1.40,
           0  => 1.00,
           default => max((1 - $i_range_modifier * 0.20),0)
         };

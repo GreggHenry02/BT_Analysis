@@ -36,9 +36,9 @@ printf("%-30s %-20s -   %4s   %4s   %4s    %2s    %4s\n",
 
 while($a_record = $o_result->fetch_assoc())
 {
-//  $o_mech->submit($a_record,$o_mysqli,0);
+  $o_mech->submit($a_record,$o_mysqli,0);
 //  $o_mech->updateMtfParse($a_record,$o_mysqli,0);
-  $o_mech->specificRange($a_record,$o_mysqli,0,2);
+//  $o_mech->specificRange($a_record,$o_mysqli,0,2);
 }
 
 
