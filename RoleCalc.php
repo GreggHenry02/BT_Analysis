@@ -61,6 +61,95 @@ class RoleCalc
   }
 
   /**
+   * Calculates offensive values.
+   *
+   * @param array $a_mech
+   * @param $a_restrict
+   * @return int
+   */
+  private function calculateOffence(array $a_mech, $a_restrict): int
+  {
+    $this->initWeapon($a_mech);
+    $i_offence = 0;
+    $i_end = $a_restrict['i_end'] ?? 0;
+    $i_start = $a_restrict['i_start'] ?? 0;
+    $i_modifier = $a_restrict['i_modifier'] ?? 0;
+    $i_speed_boost = $a_restrict['i_speed_boost'] ?? 0;
+
+    $a_range_weapon = [];
+
+    $i_weapon = 1;
+    foreach($this->a_weapon as $a_weapon)
+    {
+      foreach($a_weapon['a_range'] as $i_range => $a_range)
+      {
+        if($i_range < $i_start)
+          continue;
+        if($i_end && $i_range > $i_end)
+          break;
+
+        $i_range_modifier = $a_range['i_modifier'] + $i_modifier;
+        $r_range_modifier = match($i_range_modifier)
+        {
+          -6 => 2.50,
+          -5 => 2.40,
+          -4 => 2.25,
+          -3 => 2.00,
+          -2 => 1.75,
+          -1 => 1.40,
+          0  => 1.00,
+          default => max((1 - $i_range_modifier * 0.20),0)
+        };
+        $r_damage = $a_range['i_damage'] * $r_range_modifier;
+        $r_damage_per_heat = $r_damage / max($a_range['i_heat'],0.1);
+        $a_range_weapon[$i_range][$i_weapon] = [
+          'i_heat' => $a_range['i_heat'],
+          'r_damage' => $r_damage,
+          'r_damage_per_heat' => $r_damage_per_heat
+        ];
+      }
+      $i_weapon ++;
+    }
+
+    $i_heat_max = $a_mech['i_heatsink'];
+    $i_heat_reset = 0;
+    if($a_mech['has_stealth'])
+      $i_heat_reset = 10;
+    foreach($a_range_weapon as $i_range => $a_range)
+    {
+      usort($a_range, function($a, $b)
+      {
+        if($a['r_damage_per_heat'] < $b['r_damage_per_heat'])
+          return 1;
+        else if($a['r_damage_per_heat'] > $b['r_damage_per_heat'])
+          return -1;
+        else
+          return 0;
+      });
+
+      $i_heat_total = $i_heat_reset;
+      $r_damage = 0.0;
+      foreach($a_range as $i_weapon => $a_weapon_at_range)
+      {
+        if($i_heat_total <= $i_heat_max)
+        {
+          $i_heat_total += $a_weapon_at_range['i_heat'];
+          $r_damage += $a_weapon_at_range['r_damage'];
+        }
+      }
+
+      $i_offence += intval(ceil($r_damage));
+      if($i_speed_boost)
+      {
+        $i_offence += intval(ceil($r_damage*$i_speed_boost));
+        $i_speed_boost = 0;
+      }
+    }
+
+    return $i_offence;
+  }
+
+  /**
    * Gets weapon parameters per weapon and mech.
    *
    * @param array $a_mech
@@ -173,95 +262,6 @@ class RoleCalc
     }
 
     return $a_range;
-  }
-
-  /**
-   * Calculates offensive values.
-   *
-   * @param array $a_mech
-   * @param $a_restrict
-   * @return int
-   */
-  private function calculateOffence(array $a_mech, $a_restrict): int
-  {
-    $this->initWeapon($a_mech);
-    $i_offence = 0;
-    $i_end = $a_restrict['i_end'] ?? 0;
-    $i_start = $a_restrict['i_start'] ?? 0;
-    $i_modifier = $a_restrict['i_modifier'] ?? 0;
-    $i_speed_boost = $a_restrict['i_speed_boost'] ?? 0;
-
-    $a_range_weapon = [];
-
-    $i_weapon = 1;
-    foreach($this->a_weapon as $a_weapon)
-    {
-      foreach($a_weapon['a_range'] as $i_range => $a_range)
-      {
-        if($i_range < $i_start)
-          continue;
-        if($i_end && $i_range > $i_end)
-          break;
-
-        $i_range_modifier = $a_range['i_modifier'] + $i_modifier;
-        $r_range_modifier = match($i_range_modifier)
-        {
-          -6 => 2.50,
-          -5 => 2.40,
-          -4 => 2.25,
-          -3 => 2.00,
-          -2 => 1.75,
-          -1 => 1.40,
-          0  => 1.00,
-          default => max((1 - $i_range_modifier * 0.20),0)
-        };
-        $r_damage = $a_range['i_damage'] * $r_range_modifier;
-        $r_damage_per_heat = $r_damage / max($a_range['i_heat'],0.1);
-        $a_range_weapon[$i_range][$i_weapon] = [
-          'i_heat' => $a_range['i_heat'],
-          'r_damage' => $r_damage,
-          'r_damage_per_heat' => $r_damage_per_heat
-        ];
-      }
-      $i_weapon ++;
-    }
-
-    $i_heat_max = $a_mech['i_heatsink'];
-    $i_heat_reset = 0;
-    if($a_mech['has_stealth'])
-      $i_heat_reset = 10;
-    foreach($a_range_weapon as $i_range => $a_range)
-    {
-      usort($a_range, function($a, $b)
-      {
-        if($a['r_damage_per_heat'] < $b['r_damage_per_heat'])
-          return 1;
-        else if($a['r_damage_per_heat'] > $b['r_damage_per_heat'])
-            return -1;
-        else
-          return 0;
-      });
-
-      $i_heat_total = $i_heat_reset;
-      $r_damage = 0.0;
-      foreach($a_range as $i_weapon => $a_weapon_at_range)
-      {
-        if($i_heat_total <= $i_heat_max)
-        {
-          $i_heat_total += $a_weapon_at_range['i_heat'];
-          $r_damage += $a_weapon_at_range['r_damage'];
-        }
-      }
-
-      $i_offence += intval(ceil($r_damage));
-      if($i_speed_boost)
-      {
-        $i_offence += intval(ceil($r_damage*$i_speed_boost));
-        $i_speed_boost = 0;
-      }
-    }
-
-    return $i_offence;
   }
 
   /**
