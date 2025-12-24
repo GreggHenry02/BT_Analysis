@@ -78,16 +78,27 @@ class Analyze
       $i_accuracy = $a_weapon['i_accuracy'];
       if($has_tarcomp)
         $i_accuracy -= WeaponData::usesTargetingComputer($a_weapon['sid_type'], $a_weapon['s_subtype'])?1:0;
-      $f_accuracy = match($i_accuracy)
+      // Disabled because 8.2 features nots supported in current IDE
+//      $f_accuracy = match($i_accuracy)
+//      {
+//        -4 => 1.7,
+//        -3 => 1.6,
+//        -2 => 1.45,
+//        -1 => 1.25,
+//        0 => 1,
+//        1 => 0.8,
+//        default => 1,
+//      };
+      switch($i_accuracy)
       {
-        -4 => 1.7,
-        -3 => 1.6,
-        -2 => 1.45,
-        -1 => 1.25,
-        0 => 1,
-        1 => 0.8,
-        default => 1,
-      };
+        case -4: $f_accuracy = 2; break;
+        case -3: $f_accuracy = 1.75; break;
+        case -2: $f_accuracy = 1.50; break;
+        case -1: $f_accuracy = 1.25; break;
+        case 0: $f_accuracy = 1.0; break;
+        case 1: $f_accuracy = 0.8; break;
+        default: $f_accuracy = 1; break;
+      }
 
       //printf("%30s     %5d     %5d     %5d\n",$s_name,$a_weapon['i_long'],$i_damage,$a_weapon['i_accuracy']);
 
@@ -303,7 +314,7 @@ class Analyze
       $x_result = WeaponData::getWeapon($s_weapon);
       if(!$x_result)
       {
-        echo $s_weapon.PHP_EOL;
+        echo "'".$s_weapon."'".PHP_EOL;
         exit(); // On error, exit;
       }
       else
@@ -373,9 +384,10 @@ class Analyze
    * @param array $a_row - Basic information for the mech from the database.
    * @param object $o_mysqli - The initialized database object.
    * @param int $i_test_level - The test level. If `0`, perform the action. If `1` or greater, log to console.
+   * @param string $s_test_role - The role to report for tests.
    * @return void
    */
-  public function submit(array $a_row, object $o_mysqli, int $i_test_level=0): void
+  public function submit(array $a_row, object $o_mysqli, int $i_test_level=0, string $s_test_role='Brawler'): void
   {
     $this->setMech($a_row);
     $o_role_calc = new \BT_Analysis\RoleCalc();
@@ -389,11 +401,11 @@ class Analyze
         printf("%-30s %-20s -   %4d   %4d   %4d    %2s    %4d\n",
           $this->a_mech['s_chassis'],
           $this->a_mech['s_model'],
-          $a_calc_collection['Brawler']['i_defence'],
-          $a_calc_collection['Brawler']['i_offence'],
-          $a_calc_collection['Brawler']['i_total'],
+          $a_calc_collection[$s_test_role]['i_defence'],
+          $a_calc_collection[$s_test_role]['i_offence'],
+          $a_calc_collection[$s_test_role]['i_total'],
           !empty($this->a_mech['has_tarcomp'])?'TC':'',
-          $a_calc_collection['Brawler']['i_ratio']
+          $a_calc_collection[$s_test_role]['i_ratio']
         );
       }
       else

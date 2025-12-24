@@ -6,9 +6,9 @@ require_once "Sid.php";
 
 class TechBaseSid extends Sid
 {
-  const Clan = 2;
-  const InnerSphere = 1;
-  const Mixed = 3;
+  const CLAN = 2;
+  const INNER_SPHERE = 1;
+  const MIXED = 3;
 }
 
 ?>

@@ -373,9 +373,14 @@ class WeaponData
   /**
    * Read the contents of the file.
    */
-  public static function readFile(): void
+  public static function readFile(int $tech_base_sid=TechBaseSid::InnerSphere): void
   {
-    $s_filename='WeaponData.csv';
+    if($tech_base_sid == TechBaseSid::INNER_SPHERE)
+      $s_filename='IS-WeaponData.csv';
+    else if($tech_base_sid == TechBaseSid::CLAN)
+      $s_filename='Clan-WeaponData.csv';
+    else
+      $s_filename='WeaponData.csv';
     if(!file_exists($s_filename))
     {
       echo "File ".$s_filename." does not exist.\n";

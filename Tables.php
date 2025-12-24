@@ -38,12 +38,12 @@ class Tables
   public static function getTechBase(string $s_tech): int
   {
     if(str_contains(strtolower($s_tech),'sphere'))
-      return TechBaseSid::InnerSphere;
+      return TechBaseSid::INNER_SPHERE;
 
     if(str_contains(strtolower($s_tech),'clan'))
-      return TechBaseSid::Clan;
+      return TechBaseSid::CLAN;
 
-    return TechBaseSid::Mixed;
+    return TechBaseSid::MIXED;
   }
 
   public static function getTMM(int $i_move, bool $is_jump=false)

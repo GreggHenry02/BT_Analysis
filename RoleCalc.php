@@ -13,9 +13,11 @@ class RoleCalc
   private array $a_weapon;
   private array $a_brawler;
   private array $a_cavalry;
+  private array $a_fast_hunter;
   private array $a_harasser;
   private array $a_hunter;
   private array $a_mech;
+  private array $a_melee;
   private array $a_sniper;
 
   /**
@@ -89,17 +91,29 @@ class RoleCalc
           break;
 
         $i_range_modifier = $a_range['i_modifier'] + $i_modifier;
-        $r_range_modifier = match($i_range_modifier)
+//        $r_range_modifier = match($i_range_modifier)
+//        {
+//          -6 => 2.50,
+//          -5 => 2.40,
+//          -4 => 2.25,
+//          -3 => 2.00,
+//          -2 => 1.75,
+//          -1 => 1.40,
+//          0  => 1.00,
+//          default => max((1 - $i_range_modifier * 0.20),0)
+//        };
+        switch($i_range_modifier)
         {
-          -6 => 2.50,
-          -5 => 2.40,
-          -4 => 2.25,
-          -3 => 2.00,
-          -2 => 1.75,
-          -1 => 1.40,
-          0  => 1.00,
-          default => max((1 - $i_range_modifier * 0.20),0)
-        };
+          case -6: $r_range_modifier = 2.50; break;
+          case -5: $r_range_modifier = 2.40; break;
+          case -4: $r_range_modifier = 2.25; break;
+          case -3: $r_range_modifier = 2.00; break;
+          case -2: $r_range_modifier = 1.75; break;
+          case -1: $r_range_modifier = 1.40; break;
+          case 0: $r_range_modifier = 1.00; break;
+          default: $r_range_modifier = max((1 - $i_range_modifier * 0.20),0); break;
+        }
+
         $r_damage = $a_range['i_damage'] * $r_range_modifier;
         $r_damage_per_heat = $r_damage / max($a_range['i_heat'],0.1);
         $a_range_weapon[$i_range][$i_weapon] = [
@@ -243,13 +257,21 @@ class RoleCalc
           $i_damage = $a_weapon['a_damage'][2];
       }
 
-      $i_range_bracket = match($s_range_bracket)
+//      $i_range_bracket = match($s_range_bracket)
+//      {
+//        'Long' => 4 + ($is_VSP?2:0),
+//        'Medium' => 2 + ($is_VSP?1:0),
+//        'Short' => 0,
+//        default => 0
+//      };
+
+      switch($s_range_bracket)
       {
-        'Long' => 4 + ($is_VSP?2:0),
-        'Medium' => 2 + ($is_VSP?1:0),
-        'Short' => 0,
-        default => 0
-      };
+        case 'Long': $i_range_bracket = 4 + ($is_VSP?2:0); break;
+        case 'Medium': $i_range_bracket = 2 + ($is_VSP?1:0); break;
+        case 'Short': $i_range_bracket = 0; break;
+        default: $i_range_bracket = 0; break;
+      }
 
       $a_range[$i_range] = [
         'i_damage' => $i_damage,
@@ -311,13 +333,17 @@ class RoleCalc
     $this->a_mech = $a_mech;
     $this->a_brawler = $this->roleBrawler($a_mech);
     $this->a_cavalry = $this->roleCavalry($a_mech);
+    $this->a_fast_hunter = $this->roleFastHunter($a_mech);
     $this->a_harasser = $this->roleHarasser($a_mech);
     $this->a_hunter = $this->roleHunter($a_mech);
+    $this->a_melee = $this->roleMelee($a_mech);
     $this->a_sniper = $this->roleSniper($a_mech);
   }
 
   /**
    * Calculates values for the brawler role.
+   * A brawler is a mech that gets in close and tries to dominate with superior firepower.
+   * Example mechs: Hunchback, Warhammer
    *
    * @param array $a_mech
    * @return array
@@ -339,6 +365,8 @@ class RoleCalc
 
   /**
    * Calculates values for the cavalry role.
+   * Uses speed and long range weapons to get better trades.
+   * Example mechs: Stormcrow, Lancelot
    *
    * @param array $a_mech
    * @return array
@@ -371,10 +399,41 @@ class RoleCalc
   }
 
   /**
+   * Calculates values for the fast hunter role.
+   * An hunter is like a harasser except it is optimized for engaging with
+   * fast moving targets. A fast hunter is for even more extreme targets.
+   * Example mechs: Cicada 4A, Spider 9M
+   *
+   * @param array $a_mech
+   * @return array
+   */
+  public function roleFastHunter(array $a_mech): array
+  {
+    $i_defence = $this->calculateDefence($a_mech, [
+      'use_slow_move' => false,
+    ]);
+    $i_offence = $this->calculateOffence($a_mech, [
+      'i_end' => 3,
+      'i_modifier' => 5,
+      'i_speed_boost' => min($a_mech['i_run'], $a_mech['i_jump'])
+    ]);
+
+    // Better for comparisons.
+    $i_offence = intval($i_offence * 1.0);
+
+    return [
+      'i_defence' => $i_defence,
+      'i_offence' => $i_offence,
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
+      'i_total' => $i_defence + $i_offence,
+    ];
+  }
+
+  /**
    * Calculates values for the harasser role.
    * Harassers use high speed to get close to their target.
    * This lets them use short range weaponry more effectively.
-   * A Jenner-F is an harasser.
+   * Example Mechs: Jenner-F, Blitzkrieg
    *
    * @param array $a_mech
    * @return array
@@ -402,6 +461,7 @@ class RoleCalc
    * Calculates values for the hunter role.
    * An hunter is like a harasser except it is optimized for engaging with
    * fast moving targets.
+   * Example mechs: Wraith, Nova-S
    *
    * @param array $a_mech
    * @return array
@@ -429,7 +489,38 @@ class RoleCalc
   }
 
   /**
+   * Calculates values for the melee role.
+   * This is a special role, it solely looks at a mech's ability to cause damage in melee.
+   * Example mechs: Ostsol-8M, Axeman
+   *
+   * @param array $a_mech
+   * @return array
+   */
+  public function roleMelee(array $a_mech)
+  {
+    $i_defence = $this->calculateDefence($a_mech, [
+      'use_slow_move' => false
+    ]);
+    $i_offence = $this->calculateOffence($a_mech, []);
+    // TODO
+    // Add flag for TSM
+    // Add flag for Melee damage only
+
+    // Better for comparisons.
+    $i_offence = intval($i_offence * 2.5);
+
+    return [
+      'i_defence' => $i_defence,
+      'i_offence' => $i_offence,
+      'i_ratio' => $this->getRatio($a_mech,$i_defence,$i_offence),
+      'i_total' => $i_defence + $i_offence,
+    ];
+  }
+
+  /**
    * Calculates values for the sniper role.
+   * Snipers rely on range and position for defence.
+   * Example mechs: Archer, Marauder
    *
    * @param array $a_mech
    * @return array
@@ -490,8 +581,10 @@ class RoleCalc
     return [
       'Brawler' => $this->a_brawler,
       'Cavalry' => $this->a_cavalry,
+      'Fast Hunter' => $this->a_fast_hunter,
       'Harasser' => $this->a_harasser,
       'Hunter' => $this->a_hunter,
+      'Melee' => $this->a_melee,
       'Sniper' => $this->a_sniper,
     ];
   }
