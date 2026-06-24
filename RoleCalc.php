@@ -10,6 +10,11 @@ use BT_Analysis\Tables;
 
 class RoleCalc
 {
+  /**
+   * The fraction of a mech's run speed to give as a speed boost in calculations.
+   */
+  const RUN_MODIFIER = 0.75;
+
   private array $a_weapon;
   private array $a_brawler;
   private array $a_cavalry;
@@ -72,7 +77,6 @@ class RoleCalc
   private function calculateOffence(array $a_mech, $a_restrict): int
   {
     $this->initWeapon($a_mech);
-    $i_offence = 0;
     $i_end = $a_restrict['i_end'] ?? 0;
     $i_start = $a_restrict['i_start'] ?? 0;
     $i_modifier = $a_restrict['i_modifier'] ?? 0;
@@ -91,30 +95,8 @@ class RoleCalc
           break;
 
         $i_range_modifier = $a_range['i_modifier'] + $i_modifier;
-//        $r_range_modifier = match($i_range_modifier)
-//        {
-//          -6 => 2.50,
-//          -5 => 2.40,
-//          -4 => 2.25,
-//          -3 => 2.00,
-//          -2 => 1.75,
-//          -1 => 1.40,
-//          0  => 1.00,
-//          default => max((1 - $i_range_modifier * 0.20),0)
-//        };
-        switch($i_range_modifier)
-        {
-          case -6: $r_range_modifier = 2.50; break;
-          case -5: $r_range_modifier = 2.40; break;
-          case -4: $r_range_modifier = 2.25; break;
-          case -3: $r_range_modifier = 2.00; break;
-          case -2: $r_range_modifier = 1.75; break;
-          case -1: $r_range_modifier = 1.40; break;
-          case 0: $r_range_modifier = 1.00; break;
-          default: $r_range_modifier = max((1 - $i_range_modifier * 0.20),0); break;
-        }
 
-        $r_damage = $a_range['i_damage'] * $r_range_modifier;
+        $r_damage = $a_range['i_damage'] * self::get2d6BellCurve($i_range_modifier);
         $r_damage_per_heat = $r_damage / max($a_range['i_heat'],0.1);
         $a_range_weapon[$i_range][$i_weapon] = [
           'i_heat' => $a_range['i_heat'],
@@ -127,6 +109,7 @@ class RoleCalc
 
     $i_heat_max = $a_mech['i_heatsink'];
     $i_heat_reset = 0;
+    $r_offence = 0.0;
     if($a_mech['has_stealth'])
       $i_heat_reset = 10;
     foreach($a_range_weapon as $i_range => $a_range)
@@ -152,17 +135,43 @@ class RoleCalc
         }
       }
 
-      $i_offence += intval(ceil($r_damage));
+      $r_offence += $r_damage;
       if($i_speed_boost)
       {
-        $i_offence += intval(ceil($r_damage*$i_speed_boost));
+        $r_offence += $r_damage*$i_speed_boost;
         $i_speed_boost = 0;
       }
     }
 
-    return $i_offence;
+    return intval(ceil($r_offence));
   }
 
+  /**
+   * Returns the probability of a 2d6 roll succeeding for the given target number.
+   *
+   * @param int $i_target - The target number for a 2d6 roll.
+   * @return float - The probability of success.
+   */
+  public function get2d6BellCurve(int $i_target): float
+  {
+    switch($i_target)
+    {
+      case 12: return 1.0/36.0;
+      case 11: return 3.0/36.0;
+      case 10: return 6.0/36.0;
+      case 9: return 10.0/36.0;
+      case 8: return 15.0/36.0;
+      case 7: return 21.0/36.0;
+      case 6: return 26.0/36.0;
+      case 5: return 30.0/36.0;
+      case 4: return 33.0/36.0;
+      case 3: return 35.0/36.0;
+      case 2: return 36.0/36.0;
+    }
+    if($i_target > 12)
+      return 0.0;
+    return 1.0;
+  }
   /**
    * Gets weapon parameters per weapon and mech.
    *
@@ -350,10 +359,14 @@ class RoleCalc
    */
   public function roleBrawler(array $a_mech)
   {
+    $is_jump = $a_mech['i_jump_tmm'] > $a_mech['i_run_tmm'];
+    $i_tmm = max($a_mech['i_run_tmm'],$a_mech['i_jump_tmm']);
     $i_defence = $this->calculateDefence($a_mech, [
       'use_slow_move' => true
     ]);
-    $i_offence = $this->calculateOffence($a_mech, []);
+    $i_offence = $this->calculateOffence($a_mech, [
+      'i_modifier' => 7 + ($is_jump?1:0)
+    ]);
 
     return [
       'i_defence' => $i_defence,
@@ -384,7 +397,7 @@ class RoleCalc
     $i_offence = $this->calculateOffence($a_mech, [
       'i_modifier' => 1 + ($is_jump?1:0),
       'i_start' => 6,
-      'i_speed_boost' => min($a_mech['i_run']-3,6)
+      'i_speed_boost' => $is_jump?$a_mech['i_jump']:$a_mech['i_run']*self::RUN_MODIFIER
     ]);
 
     // Better for comparisons.
@@ -409,17 +422,19 @@ class RoleCalc
    */
   public function roleFastHunter(array $a_mech): array
   {
+    $is_jump = $a_mech['i_jump_tmm'] > $a_mech['i_run_tmm'];
+    $i_tmm = max($a_mech['i_run_tmm'],$a_mech['i_jump_tmm']);
     $i_defence = $this->calculateDefence($a_mech, [
       'use_slow_move' => false,
     ]);
     $i_offence = $this->calculateOffence($a_mech, [
       'i_end' => 3,
-      'i_modifier' => 5,
-      'i_speed_boost' => min($a_mech['i_run'], $a_mech['i_jump'])
+      'i_modifier' => 11+($is_jump?1:0),
+      'i_speed_boost' => $is_jump?$a_mech['i_jump']:$a_mech['i_run']*self::RUN_MODIFIER
     ]);
 
     // Better for comparisons.
-    $i_offence = intval($i_offence * 1.0);
+    $i_offence = intval($i_offence * 3.5);
 
     return [
       'i_defence' => $i_defence,
@@ -440,14 +455,19 @@ class RoleCalc
    */
   public function roleHarasser(array $a_mech): array
   {
+    $is_jump = $a_mech['i_jump_tmm'] > $a_mech['i_run_tmm'];
+    $i_tmm = max($a_mech['i_run_tmm'],$a_mech['i_jump_tmm']);
     $i_defence = $this->calculateDefence($a_mech, [
       'use_slow_move' => true,
     ]);
     $i_offence = $this->calculateOffence($a_mech, [
       'i_end' => 3,
-      'i_modifier' => 1,
-      'i_speed_boost' => min($a_mech['i_walk'], $a_mech['i_jump'])
+      'i_modifier' => 8+($is_jump?1:0),
+      'i_speed_boost' => $is_jump?$a_mech['i_jump']:$a_mech['i_run']*self::RUN_MODIFIER
     ]);
+
+    // Better for comparisons.
+    $i_offence = intval($i_offence * 1.5);
 
     return [
       'i_defence' => $i_defence,
@@ -468,17 +488,19 @@ class RoleCalc
    */
   public function roleHunter(array $a_mech): array
   {
+    $is_jump = $a_mech['i_jump_tmm'] > $a_mech['i_run_tmm'];
+    $i_tmm = max($a_mech['i_run_tmm'],$a_mech['i_jump_tmm']);
     $i_defence = $this->calculateDefence($a_mech, [
       'use_slow_move' => true,
     ]);
     $i_offence = $this->calculateOffence($a_mech, [
       'i_end' => 3,
-      'i_modifier' => 4,
-      'i_speed_boost' => min($a_mech['i_run']-3, $a_mech['i_jump'])
+      'i_modifier' => 8+($is_jump?1:0),
+      'i_speed_boost' => $is_jump?$a_mech['i_jump']:$a_mech['i_run']*self::RUN_MODIFIER
     ]);
 
     // Better for comparisons.
-    $i_offence = intval($i_offence * 2.5);
+    $i_offence = intval($i_offence * 1.5);
 
     return [
       'i_defence' => $i_defence,
@@ -532,10 +554,13 @@ class RoleCalc
     ]);
     // Snipers stay at range, so calculate ranges 1-5 as range 6.
     $i_offence = $this->calculateOffence($a_mech, [
-      'i_modifier' => -2,
-      'i_speed_boost' => 3,
+      'i_modifier' => 7,
+      'i_speed_boost' => 3, // This starts at range 6. Compensates for the start range being 6.
       'i_start' => 6,
     ]);
+
+    // Better for comparisons.
+    $i_offence = intval($i_offence * 1.1);
 
     return [
       'i_defence' => $i_defence,
@@ -544,6 +569,22 @@ class RoleCalc
       'i_total' => $i_defence + $i_offence,
     ];
   }
+
+//  public function roleTest(array $a_mech, string $s_role): array
+//  {
+//    $a_return = [];
+//    switch($s_role)
+//    {
+//      case 'Brawler': $a_return = self::roleBrawler($a_mech); break;
+//      case 'Fast Hunter': $a_return = self::roleFastHunter($a_mech); break;
+//      case 'Harasser': $a_return = self::roleHarasser($a_mech); break;
+//      case 'Hunter': $a_return = self::roleHunter($a_mech); break;
+//      case 'Sniper': $a_return = self::roleSniper($a_mech); break;
+//      default: break;
+//    }
+//
+//    return $a_return;
+//  }
 
   /**
    * Calculates analysis for a specific range.
@@ -584,7 +625,7 @@ class RoleCalc
       'Fast Hunter' => $this->a_fast_hunter,
       'Harasser' => $this->a_harasser,
       'Hunter' => $this->a_hunter,
-      'Melee' => $this->a_melee,
+//      'Melee' => $this->a_melee,
       'Sniper' => $this->a_sniper,
     ];
   }

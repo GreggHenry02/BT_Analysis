@@ -22,6 +22,8 @@ $o_result = $o_mysqli->query("
     TechBase like '%Inner Sphere%' and
     Mass >= 20 and
     Mass <= 100
+  order by
+    Model asc
 ");
 
 WeaponData::readFile(TechBaseSid::CLAN);
@@ -35,10 +37,10 @@ printf("%-30s %-20s -   %4s   %4s   %4s    %2s    %4s\n",
 
 while($a_record = $o_result->fetch_assoc())
 {
-  $o_mech->submit($a_record,$o_mysqli,1, 'Fast Hunter');
+  $o_mech->submit($a_record,$o_mysqli);
+//  $o_mech->submit($a_record,$o_mysqli,1, 'Fast Hunter');
 //  $o_mech->updateMtfParse($a_record,$o_mysqli,0);
 //  $o_mech->specificRange($a_record,$o_mysqli,0,2);
-//  $o_mech
 }
 
 

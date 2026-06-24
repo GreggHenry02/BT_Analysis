@@ -19,10 +19,13 @@ $o_result = $o_mysqli->query("
   select * from
     mtf_parse
   where
-    TechBase like '%Clan%' and
+    TechBase like '%Clan%' and 
     Mass >= 20 and
     Mass <= 100
 ");
+
+//Chassis like '%Dasher%' and
+//Model like 'P' and
 
 WeaponData::readFile(TechBaseSid::INNER_SPHERE);
 WeaponData::readFile(TechBaseSid::CLAN);
@@ -35,10 +38,11 @@ printf("%-30s %-20s -   %4s   %4s   %4s    %2s    %4s\n",
 
 while($a_record = $o_result->fetch_assoc())
 {
-  $o_mech->submit($a_record,$o_mysqli,1, 'Fast Hunter');
+  $o_mech->submit($a_record,$o_mysqli);
+//  $o_mech->submit($a_record,$o_mysqli,1, 'Fast Hunter');
+//  $o_mech->roleTest($a_record,'Fast Hunter');
 //  $o_mech->updateMtfParse($a_record,$o_mysqli,0);
 //  $o_mech->specificRange($a_record,$o_mysqli,0,2);
-//  $o_mech
 }
 
 
